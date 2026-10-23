@@ -54,12 +54,12 @@ if not os.path.exists(CHROMA_PERSIST_DIRECTORY) or not os.listdir(CHROMA_PERSIST
 if not check_ollama(OLLAMA_BASE_URL):
     st.error(f"⚠️ **Cannot connect to Ollama at `{OLLAMA_BASE_URL}`.**")
     st.info("Please make sure the Ollama background service is running:")
-    st.code("brew services start ollama   # or: ollama serve", language="bash")
+    st.code("ollama serve   # or brew services start ollama", language="bash")
     st.stop()
 
 # 3. Error handling: Missing PDF warning
-if not os.path.exists(PDF_PATH):
-    st.warning(f"Note: Original source PDF '{PDF_PATH}' is missing, but indexed ChromaDB is available.")
+if not os.path.exists(PDF_PATH) and not os.path.exists(os.path.basename(PDF_PATH)):
+    st.warning(f"Note: Original source PDF '{PDF_PATH}' was not found in directory, but ChromaDB vector index is active.")
 
 
 # Cached Vector Store & Retriever Initialization
@@ -73,8 +73,8 @@ def get_retriever():
         persist_directory=CHROMA_PERSIST_DIRECTORY,
         embedding_function=embeddings,
     )
-    # Retrieve top 5 most relevant chunks
-    return vector_store.as_retriever(search_kwargs={"k": 5})
+    # Retrieve top 4 most relevant chunks
+    return vector_store.as_retriever(search_kwargs={"k": 4})
 
 
 # Cached LLM Initialization
@@ -104,14 +104,13 @@ with st.sidebar:
     st.write(f"**Source Document:** `{PDF_PATH}`")
     
     st.divider()
-    st.subheader("📋 Sample Exam Questions")
+    st.subheader("📋 Assignment Test Questions")
     sample_questions = [
         "How many days of Privilege Leave (PL) does a permanent employee get per year?",
         "What is the probation period for employees up to Senior Manager?",
         "What is the company's health-insurance premium amount?",
         "What is the current GST rate in India?",
         "How many days of maternity leave are given?",
-        "What is the reimbursement policy for personal phone calls?",
     ]
 
     selected_sample = None
@@ -134,9 +133,9 @@ for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if "sources" in msg and msg["sources"]:
-            with st.expander("📄 Relevant Policy Section & Page Reference"):
+            with st.expander("📄 Retrieved Policy Evidence"):
                 for src in msg["sources"]:
-                    st.markdown(f"**Page {src['page']}** ({src['source']})")
+                    st.markdown(f"**Page {src['page']}** — *{src['section']}* ({src['source']})")
                     st.caption(src["snippet"])
 
 
@@ -151,40 +150,47 @@ def answer_question(question: str):
     if not docs:
         return "Not found", []
 
-    # 2. Format context with explicit page tags and build unique source list
+    # 2. Format context with explicit page and section tags
     formatted_context_list = []
     sources = []
-    seen_pages = set()
     for d in docs:
         page_num = d.metadata.get("page_number", d.metadata.get("page", 0) + 1)
+        sec_name = d.metadata.get("policy_section", "General Policy")
         src_name = d.metadata.get("source_file", os.path.basename(PDF_PATH))
         content = d.page_content.strip()
-        formatted_context_list.append(f"[Page {page_num}]:\n{content}")
-        if page_num not in seen_pages:
-            seen_pages.add(page_num)
-            sources.append({
-                "page": page_num,
-                "source": src_name,
-                "snippet": content[:350] + ("..." if len(content) > 350 else "")
-            })
+        
+        formatted_context_list.append(f"--- [Page {page_num} | Policy Section: {sec_name}] ---\n{content}")
+        sources.append({
+            "page": page_num,
+            "section": sec_name,
+            "source": src_name,
+            "snippet": content[:300] + ("..." if len(content) > 300 else "")
+        })
 
-    context_str = "\n\n---\n\n".join(formatted_context_list)
+    context_str = "\n\n".join(formatted_context_list)
 
-    # 3. Direct, fact-grounded prompt with strict fallback
+    # 3. Strict prompt enforcement
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an official HR Assistant for Enso Group. Answer employee questions using ONLY the provided HR Manual context.
+        ("system", """You are an official HR Policy Assistant for Enso Group.
+Answer the user's question using ONLY the provided Document Context.
 
-Rules:
-1. If the context contains the answer, directly state the exact rule, durations, amounts, limits, and conditions.
-2. Always conclude your answer with the citation: Reference: Page <Page Number> (Section <Policy Section Name>).
-3. If the context does not contain the answer or the topic is not covered in the manual, reply with EXACTLY: Not found
-4. Do not assume or use outside knowledge."""),
+RULES:
+1. If the provided context explicitly contains the facts to answer the question:
+   First, provide the factual answer clearly in 1-2 complete sentences.
+   Then, on a new line, provide the exact source reference:
+   Source: Page <page_number>, Policy Section: <policy_section>
+
+2. If the provided context does NOT explicitly answer the question (or if the topic is absent, such as health insurance premium or GST rate):
+   Respond with EXACTLY the words 'Not found' and absolutely nothing else. Do not add explanations, notes, or source lines when not found.
+
+3. Do not assume, guess, extrapolate, or use outside knowledge.
+"""),
         ("user", """Document Context:
 {context}
 
-Question: {question}
-
-Answer:""")
+Question:
+{question}
+""")
     ])
 
     chain = prompt | llm | StrOutputParser()
@@ -194,20 +200,18 @@ Answer:""")
     except Exception as err:
         return f"Error communicating with Ollama: {err}", []
 
-    # Normalization: if model indicates it was not found, standardize to "Not found"
-    reply_lower = raw_reply.lower()
+    # Normalization: if model indicates absence or replies 'Not found', return exactly 'Not found'
+    first_line = raw_reply.split('\n')[0].strip().lower()
+    raw_lower = raw_reply.lower()
     if (
-        "not found" in reply_lower
-        or "not mentioned" in reply_lower
-        or "does not contain" in reply_lower
-        or "no information" in reply_lower
-        or "cannot find" in reply_lower
+        first_line.startswith("not found")
+        or "not found" in raw_lower
+        or "not mentioned" in raw_lower
+        or "does not contain" in raw_lower
+        or "no information" in raw_lower
+        or "cannot find" in raw_lower
     ):
         return "Not found", []
-
-    # Ensure reference citation is attached if model omitted it in body
-    if "reference:" not in raw_reply.lower() and sources:
-        raw_reply += f"\n\nReference: Page {sources[0]['page']} ({sources[0]['source']})"
 
     return raw_reply, sources
 
@@ -231,9 +235,9 @@ if user_input:
             reply, sources = answer_question(user_input)
             st.markdown(reply)
             if sources:
-                with st.expander("📄 Relevant Policy Section & Page Reference"):
+                with st.expander("📄 Retrieved Policy Evidence"):
                     for src in sources:
-                        st.markdown(f"**Page {src['page']}** ({src['source']})")
+                        st.markdown(f"**Page {src['page']}** — *{src['section']}* ({src['source']})")
                         st.caption(src["snippet"])
 
     # Save assistant response to history

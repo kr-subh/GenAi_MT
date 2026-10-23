@@ -83,33 +83,55 @@ Open your browser at `http://localhost:8501`.
 
 ---
 
-## 📋 Mid-Term Exam Questions & Verified Answers
+## 📋 Mid-Term Exam Questions & Verified Answers (with UI Screenshots)
 
-Below are the 5 required test questions evaluated against the Enso Group HR Manual:
+Below are the test questions evaluated against the Enso Group HR Manual along with actual Streamlit UI screenshots:
 
 ### Question 1: How many days of Privilege Leave (PL) does a permanent employee get per year?
 * **Answer:** A permanent employee gets **12 days** of Privilege Leave (PL) per year (calculated per calendar year from 1st Jan to 31st Dec).
 * **Reference:** Section `[G] Leave Policy`, Page **60** (`hr_manual.pdf`).
 
+![Privilege Leave UI Screenshot](screenshots/01_privilege_leave.png)
+
+---
+
 ### Question 2: What is the probation period for employees up to Senior Manager?
 * **Answer:** All employees up to Senior Manager are placed on probation for a period of **3 months** from the date of joining.
 * **Reference:** Section `[B] Probation Policy`, Page **42** (`hr_manual.pdf`).
+
+![Probation Period UI Screenshot](screenshots/02_probation_period.png)
+
+---
 
 ### Question 3: What is the company's health-insurance premium amount?
 * **Answer:** **`Not found`**
 * **Reference:** The Enso Group HR Manual mentions travel insurance coverage for business travel (Page 71), but does not state any health insurance premium amount.
 
+![Health Insurance UI Screenshot](screenshots/03_health_insurance.png)
+
+---
+
 ### Question 4: What is the current GST rate in India?
 * **Answer:** **`Not found`**
 * **Reference:** Out-of-scope query. Taxes/GST rates are not part of the Enso Group HR Policy Manual.
+
+![GST Rate UI Screenshot](screenshots/04_gst_rate.png)
+
+---
 
 ### Question 5: How many days of maternity leave are given?
 * **Answer:** The company provides a total of **12 weeks (90 days)** of Maternity Leave (ML) with pay, of which not more than 6 weeks (45 days) should precede the expected delivery date.
 * **Reference:** Section `[G] Leave Policy` (Maternity Leave / Leeway), Page **62** (`hr_manual.pdf`).
 
+![Maternity Leave UI Screenshot](screenshots/05_maternity_leave.png)
+
+---
+
 ### Question 6: What is the reimbursement policy for personal phone calls?
 * **Answer:** Employees traveling on a business trip are reimbursed for personal phone calls up to a maximum length of **twenty (20) minutes per week (Week = 5 days)**. Personal telephone calls made from **Air phones, Rail phones, or Cellular Car phones** will not be reimbursed.
 * **Reference:** Annexure IV: Long distance travel policy — Section `(C.) Personal Phone Calls`, Page **70** (`hr_manual.pdf`).
+
+![Personal Phone Calls UI Screenshot](screenshots/06_personal_phone_calls.png)
 
 ---
 
