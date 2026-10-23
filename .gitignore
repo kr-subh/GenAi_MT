@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Vector database storage
+chroma_db/
+db/
+
+# Environment variables & secrets
+.env
+
+# Streamlit run files
+.streamlit/secrets.toml
+
+# macOS files
+.DS_Store
+
+# Logs
+*.log
